@@ -1,27 +1,50 @@
-import { useEffect } from 'react';
-import useStore from '../store';
+import { useEffect } from "react";
+import useStore from "../store";
+
+const STORAGE_KEY = "grandBodegaOrder";
 
 export default function useLocalStorageSync() {
-  const { order, isDark } = useStore();
+  const { order, addToOrder, changeQty, removeItem, clearOrder } = useStore();
 
   useEffect(() => {
-    localStorage.setItem('grandBodegaOrder', JSON.stringify(order));
-  }, [order]);
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          useStore.setState({ order: [] });
 
-  useEffect(() => {
-    localStorage.setItem('grandBodegaTheme', isDark ? 'dark' : 'light');
-  }, [isDark]);
+          parsed.forEach((item) => {
+            useStore.getState().addToOrder({
+              name: item.name,
+              price: item.price,
+              recipe: item.recipe || [],
+              note: item.note,
+            });
 
-  useEffect(() => {
-    const savedOrder = localStorage.getItem('grandBodegaOrder');
-    if (savedOrder) {
-      try {
-        const parsed = JSON.parse(savedOrder);
-        if (Array.isArray(parsed)) useStore.setState({ order: parsed });
-      } catch {}
+            useStore.getState().changeQty(item.name, item.qty - 1);
+          });
+
+          console.log("Loaded order from localStorage:", parsed);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load order from localStorage:", err);
+      localStorage.removeItem(STORAGE_KEY); // clean broken data
     }
-
-    const savedTheme = localStorage.getItem('grandBodegaTheme');
-    if (savedTheme === 'light') useStore.setState({ isDark: false });
   }, []);
+
+  useEffect(() => {
+    try {
+      if (order.length > 0) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(order));
+        console.log("Saved order to localStorage:", order);
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+        console.log("Cleared localStorage (empty order)");
+      }
+    } catch (err) {
+      console.error("Failed to save order to localStorage:", err);
+    }
+  }, [order]);
 }
